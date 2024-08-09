@@ -36,6 +36,7 @@ type System struct {
 // init System struct
 func initializeSystem() *System {
 	busStops := make([]BusStop, 10)
+	terminal := 0
 
 	for i := range busStops {
 		busStops[i] = BusStop{id: i, queue: []Passenger{}}
@@ -43,23 +44,42 @@ func initializeSystem() *System {
 
 	buses := make ([]Bus, 5)
 	for i := range buses {
-		buses[i] = Bus{id: i, route: generateRoute(), capacity: 20, passengers: []Passenger{}, location: 0}
+		buses[i] = Bus{id: i, route: generateRoute(terminal, 7, len(busStops)), capacity: 20, passengers: []Passenger{}, location: 0}
 	}
 
 	return &System{
 		busStops: busStops,
 		buses: buses,
-		terminal: 0,
+		terminal: terminal,
 		totalWaitingTime: 0,
 		totalPassengers: 0,
 	}
 }
 
-func generateRoute() []int {
-	route := rand.Perm(10)
-	route = append(route, 0)
+func generateRoute(terminal int, numStops int, totalStops int) []int {
+    // Start the route at the terminal
+    route := []int{terminal}
+    
+    // Create a list of all possible stops, excluding the terminal
+    allStops := make([]int, 0, totalStops-1)
+    for i := 0; i < totalStops; i++ {
+        if i != terminal {
+            allStops = append(allStops, i)
+        }
+    }
 
-	return route
+    // Shuffle the list of stops and select a subset
+    rand.Shuffle(len(allStops), func(i, j int) {
+        allStops[i], allStops[j] = allStops[j], allStops[i]
+    })
+    
+    // Add up to numStops - 2 stops (because the terminal is already added at the beginning)
+    route = append(route, allStops[:numStops-2]...)
+    
+    // End the route at the terminal
+    route = append(route, terminal)
+    
+    return route
 }
 
 // simulate passenger arrivals
@@ -140,17 +160,22 @@ func dispatchBus(s *System, bus *Bus) {
 			maxQueueLength = len(stop.queue)
 		}
 	}
-	bus.route = generateRouteToStop(longestQueueStop)
+	bus.route = s.generateRouteToStop(longestQueueStop)
 }
 
-func generateRouteToStop(stop int) []int {
-	route := rand.Perm(10)
-	for i, s := range route {
-		if s == stop {
-			route = append(route[:i], append([]int{stop}, route[i:]...)...)
-			break
-		}
-	}
+func (s *System) generateRouteToStop(stop int) []int {
+	route := generateRoute(s.terminal, 7, len(s.busStops))
+	 // Ensure the stop is included if not already
+	 found := false
+	 for _, r := range route {
+		 if r == stop {
+			 found = true
+			 break
+		 }
+	 }
+	 if !found {
+		 route = append(route[:len(route) - 1], stop, s.terminal)
+	 }
 
 	return route
 }
