@@ -113,7 +113,7 @@ func (s *System) moveBuses() {
 				dispatchBus(s, bus)
 			}
 
-			fmt.Printf("Average Waiting Time: %v\n", s.averageWaitingTime()) // stabilizes at 9.772898928s now
+			fmt.Printf("\nAverage Waiting Time: %v\nStop number: %v\nPeople waiting at this stop: %v\n", s.averageWaitingTime(), bus.location, len(s.busStops[bus.location].queue)) // stabilizes at 9.772898928s now
 			nextStop := (bus.location + 1) % len(bus.route)
 			bus.location = bus.route[nextStop]
 			s.pickupPassengers(bus)
@@ -126,19 +126,44 @@ func (s *System) pickupPassengers(bus *Bus) {
 	stop := s.busStops[bus.location]
 	currentTime := time.Now()
 
-	for len(stop.queue) > 0 && len(bus.passengers) < bus.capacity {
-		passenger := stop.queue[0]
-		stop.queue = stop.queue[1:]
+	for i := 0; i < len(stop.queue); {
+		passenger := stop.queue[i]
 
-		// calculater waiting time
-		waitingTime := currentTime.Sub(passenger.arrivalTime)
-		s.totalWaitingTime += waitingTime
-		s.totalPassengers++
-
-		// add passenger to bus
-		bus.passengers = append(bus.passengers, passenger)
+		if isDirectRoute(bus.route, passenger.source, passenger.destination) {
+            // Calculate waiting time for this passenger
+            waitingTime := currentTime.Sub(passenger.arrivalTime)
+            s.totalWaitingTime += waitingTime
+            s.totalPassengers++
+            
+            // Add the passenger to the bus
+            bus.passengers = append(bus.passengers, passenger)
+			if len(bus.passengers) == bus.capacity {
+				break
+			}
+            
+            // Remove the passenger from the stop's queue
+            stop.queue = append(stop.queue[:i], stop.queue[i+1:]...)
+        } else {
+            i++  // Move to the next passenger
+        }
 	}
 
+}
+
+func isDirectRoute(route []int, source int, destination int) bool {
+	sourceFound := false
+
+	for _, stop := range route {
+		if stop == source {
+			sourceFound = true
+		}
+
+		if sourceFound && stop == destination {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *System) averageWaitingTime() time.Duration {
