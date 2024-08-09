@@ -29,6 +29,8 @@ type System struct {
 	busStops []BusStop
 	buses []Bus
 	terminal int
+	totalWaitingTime time.Duration
+	totalPassengers int
 }
 
 // init System struct
@@ -48,6 +50,8 @@ func initializeSystem() *System {
 		busStops: busStops,
 		buses: buses,
 		terminal: 0,
+		totalWaitingTime: 0,
+		totalPassengers: 0,
 	}
 }
 
@@ -89,6 +93,7 @@ func (s *System) moveBuses() {
 				dispatchBus(s, bus)
 			}
 
+			fmt.Printf("Average Waiting Time: %v\n", s.averageWaitingTime()) // stabilizes at 9.772898928s now
 			nextStop := (bus.location + 1) % len(bus.route)
 			bus.location = bus.route[nextStop]
 			s.pickupPassengers(bus)
@@ -99,16 +104,33 @@ func (s *System) moveBuses() {
 
 func (s *System) pickupPassengers(bus *Bus) {
 	stop := s.busStops[bus.location]
+	currentTime := time.Now()
 
 	for len(stop.queue) > 0 && len(bus.passengers) < bus.capacity {
 		passenger := stop.queue[0]
 		stop.queue = stop.queue[1:]
+
+		// calculater waiting time
+		waitingTime := currentTime.Sub(passenger.arrivalTime)
+		s.totalWaitingTime += waitingTime
+		s.totalPassengers++
+
+		// add passenger to bus
 		bus.passengers = append(bus.passengers, passenger)
 	}
 
 }
 
+func (s *System) averageWaitingTime() time.Duration {
+	if s.totalPassengers == 0 {
+		return 0
+	}
+	
+	return s.totalWaitingTime / time.Duration(s.totalPassengers)
+}
+
 func dispatchBus(s *System, bus *Bus) {
+	// Current Strategy: select the bus stop with the longest queue
 	longestQueueStop := 0
 	maxQueueLength := 0
 
